@@ -1,4 +1,4 @@
 .idea
 .ipynb_checkpoints
 submission*.csv
-data/*.gz
+*/data/*.csv.gz
