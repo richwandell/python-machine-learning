@@ -1,0 +1,200 @@
+<!Doctype html>
+<head>
+    <style>
+        * {
+            user-select: none;
+        }
+
+        #drawing_canvas{
+            width: 500px;
+            height: 500px;
+            border: 1px solid black;
+        }
+
+        #guess {
+            height: 500px;
+        }
+
+        #guess .big{
+            font-size: 500px;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+</head>
+<body>
+    <table>
+        <tr>
+            <td width="75%">
+                <canvas width="500" height="500" id="drawing_canvas"></canvas>
+            </td>
+            <td width="25%">
+                <div id="guess"></div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <button id="guess_button">Guess</button>
+            </td>
+        </tr>
+    </table>
+</body>
+<script>
+    var pixels = [];
+
+    function init(){
+        var can = $("#drawing_canvas")[0];
+        var ctx = can.getContext("2d");
+        drawLines(can, ctx);
+        mouseActions(can, ctx);
+        guessButton();
+    }
+
+    function guessButton(){
+        $("#guess_button").click(function(e){
+            makeGuess();
+        });
+    }
+
+    function makeGuess(){
+        var sPixels = Array.apply(null, {length: 784})
+            .map(function(){
+                return 0;
+            });
+
+        for(var i = 0; i < pixels.length; i++){
+            var pixel = (28 * pixels[i].y) + pixels[i].x;
+            var color = pixels[i].color;
+            if (pixel < sPixels.length){
+                sPixels[pixel] = color;
+            }
+        }
+
+        $.ajax({
+             url: "/guess",
+             type: "post",
+             dataType: "json",
+             data: {
+                 pixels: sPixels
+             },
+             success: function(res){
+                 console.log(res);
+                 $("#guess").html(
+                     "<table>" +
+                     "<tr><td>Sklearn</td><td>Keras</td></tr>" +
+                     "<tr class='big'><td>" + res.guess.sknn + "</td><td>" + res.guess.knn + "</td></tr>" +
+                     "</table>"
+                 );
+             }
+        })
+    }
+
+    function getMousePos(can, e) {
+        var rect = can.getBoundingClientRect();
+        var size = can.width / 28;
+
+        var x = Math.abs(Math.round((e.clientX - rect.left) / size));
+        var y = Math.abs(Math.round((e.clientY - rect.top) / size));
+        return {
+            x: x,
+            y: y
+        };
+    }
+
+    function mouseActions(can, ctx) {
+        var mouseDown = false;
+        var mouseX = 0, mouseY = 0;
+        var pxKeys = [];
+        $(can).on({
+            "contextmenu": function(e) {
+                pixels = [], pxKeys = [];
+                drawLines(can, ctx);
+                drawPixels(can, ctx, pixels);
+                e.preventDefault();
+            },
+            "mousemove": function(e) {
+                var pos = getMousePos(can, e);
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                if (mouseDown) {
+                    var px = generateRange(pos.x, pos.y);
+                    var px_key = pos.x + "_" + pos.y;
+                    for(var i = 0; i < px.length; i++){
+                        var key = px[i].x + "_" + px[i].y;
+                        var index = pxKeys.indexOf(key);
+                        if (index > -1){
+                            var old = pixels[index];
+                            if (key === px_key) {
+                                old.color = px[i].color;
+                            } else {
+                                old.color = Math.max(1, old.color);
+                                old.color = Math.abs(Math.min(255, old.color * 1.005));
+                            }
+                        } else {
+                            pixels.push(px[i]);
+                            pxKeys.push(key);
+                        }
+                    }
+
+                    drawLines(can, ctx);
+                    drawPixels(can, ctx, pixels);
+                }
+            },
+            "mousedown": function(e) {
+                mouseDown = true;
+            },
+            "mouseup": function(e) {
+                mouseDown = false;
+                if (pixels.length > 0) {
+                    makeGuess();
+                }
+            }
+        })
+    }
+
+    function generateRange(x, y) {
+        var px = [];
+        for(var i = x - 2; i < x + 2; i++) {
+            for(var j = y - 2; j < y + 2; j++){
+                var distance = Math.sqrt(Math.pow(Math.abs(x - i), 2) + Math.pow(Math.abs(y - j), 2));
+                var color = Math.abs(255 - Math.pow(distance, 6));
+                px.push({x: i, y: j, color: color});
+            }
+        }
+        return px;
+    }
+
+    function drawLines(can, ctx){
+        var lines = 28;
+        ctx.clearRect(0, 0, can.width, can.height);
+
+        for(var i = 0; i < lines; i++){
+            ctx.beginPath();
+            ctx.strokeStyle = "rgb(206, 203, 203)";
+            var startX = (can.width / lines) * i;
+            ctx.moveTo(startX, 0);
+            ctx.lineTo(startX, can.height);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.strokeStyle = "rgb(206, 203, 203)";
+            var startY = (can.height / lines) * i;
+            ctx.moveTo(0, startY);
+            ctx.lineTo(can.width, startY);
+            ctx.stroke();
+        }
+    }
+
+    function drawPixels(can, ctx, pixels) {
+        var size = can.width / 28;
+        for(var i = 0; i < pixels.length; i++){
+            var x = size * pixels[i].x;
+            var y = size * pixels[i].y;
+            var color = Math.abs(255 - Math.round(pixels[i].color));
+            ctx.fillStyle = "rgb(" + color + ", " + color + ", " + color + ")";
+            ctx.fillRect(x, y, size, size);
+        }
+    }
+
+
+    $(init)
+</script>

@@ -1,0 +1,6 @@
+* text eol=lf
+* text eol=lf
+*.gz binary
+*.pkl binary
+*.whl binary
+*.h5 binary
