@@ -19,7 +19,7 @@ pca = PCA(n_components=200)
 training_data = pca.fit_transform(X[:train_size], y[:train_size])
 
 model = Sequential()
-model.add(Dense(512, activation='relu', input_shape=(50,)))
+model.add(Dense(512, activation='relu', input_shape=(200,)))
 model.add(Dense(10, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer=RMSprop(lr=0.001), metrics=['accuracy'])
 loss = model.fit(training_data, y[:train_size], batch_size=1500, epochs=20, verbose=1)

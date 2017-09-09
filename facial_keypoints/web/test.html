@@ -1,0 +1,120 @@
+<!Doctype html>
+<head>
+    <style>
+        * {
+            user-select: none;
+        }
+
+        #drawing_canvas{
+            border: 1px solid black;
+        }
+
+        #guess {
+            height: 500px;
+        }
+
+        #guess .big{
+            font-size: 500px;
+        }
+
+        video {
+            display: none;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+</head>
+<body>
+    <table>
+        <tr>
+            <td>
+               <video width="640" height="480" autoplay id="videoElement"></video>
+            </td>
+        </tr>
+        <tr>
+            <td width="75%">
+                <canvas  width="640" height="480" id="drawing_canvas"></canvas>
+            </td>
+            <td width="25%">
+                <div id="guess"></div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <button id="guess_button">Guess</button>
+            </td>
+        </tr>
+    </table>
+</body>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
+<script>
+    var video = $("#videoElement")[0];
+    var can = $("#drawing_canvas")[0];
+    var ctx = can.getContext("2d");
+    var socket = io.connect('localhost:8080');
+    var blobData = [];
+    var send = true;
+
+    socket.on('connect', wsOpen);
+
+    socket.on('blob-saved', onBlobSaved);
+
+    $("#guess_button").click(canvasSnapshot);
+
+    function onBlobSaved(data) {
+        blobData = data;
+    }
+
+    function wsOpen(a, b) {
+        console.log("Socket Open", a, b)
+    }
+
+    function handleVideo(stream) {
+        video.src = window.URL.createObjectURL(stream);
+    }
+
+    function videoError(e) {
+        console.error("Error video", e)
+    }
+
+    function canvasSnapshot() {
+        ctx.clearRect(0, 0, can.width, can.height);
+        ctx.drawImage(video, 0, 0);
+
+        for (var r = 0; r < blobData.length; r++) {
+            var oldX = blobData[r][0];
+            var oldY = blobData[r][1];
+
+            var ratioX = oldX / 96;
+            var x = 480 * ratioX;
+
+            var perc = 640 / 480;
+            var move = (480 - (640 * perc) / 2);
+            x = x + move;
+
+            var ratioY = oldY / 96;
+            var y = 480 * ratioY;
+
+
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        if (send) {
+            can.toBlob(function (blob) {
+                socket.emit('blob', blob);
+            }, 'image/jpeg', 0.50);
+            send = false;
+        }
+        requestAnimationFrame(canvasSnapshot);
+    }
+
+    navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia || navigator.oGetUserMedia;
+    navigator.getUserMedia({video: true}, handleVideo, videoError);
+
+    requestAnimationFrame(canvasSnapshot);
+    setInterval(function(){
+        send = true;
+    }, 500);
+</script>
